@@ -1,0 +1,8 @@
+Flask
+python-dotenv
+flask-cors
+sendgrid
+pymongo
+bcrypt
+requests
+google-generativeai

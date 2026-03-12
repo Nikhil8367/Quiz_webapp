@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:      #080c14;
+      --surface: #0e1521;
+      --card:    #121c2e;
+      --border:  rgba(99,179,237,0.12);
+      --accent:  #38bdf8;
+      --accent2: #818cf8;
+      --accent3: #34d399;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --danger:  #f87171;
+      --glow:    rgba(56,189,248,0.15);
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family:'DM Sans',sans-serif;
+      background:var(--bg); color:var(--text);
+      min-height:100vh; overflow-x:hidden;
+    }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(56,189,248,0.03) 1px,transparent 1px);
+      background-size:40px 40px;
+      z-index:0; pointer-events:none;
+    }
+
+    /* Header */
+    header {
+      position:sticky; top:0; z-index:100;
+      background:rgba(8,12,20,0.88); backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border);
+      padding:0 2rem; display:flex; align-items:center;
+      justify-content:space-between; height:64px;
+    }
+    .header-logo {
+      font-family:'Syne',sans-serif; font-weight:800; font-size:1.2rem;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .header-user { display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--muted); }
+    .avatar {
+      width:34px; height:34px; border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Syne',sans-serif; font-weight:700; font-size:0.85rem; color:var(--bg);
+    }
+
+    /* Layout */
+    .layout { display:grid; grid-template-columns:220px 1fr; min-height:calc(100vh - 64px); position:relative; z-index:1; }
+
+    /* Sidebar */
+    aside {
+      background:var(--surface); border-right:1px solid var(--border);
+      padding:1.5rem 1rem; position:sticky; top:64px;
+      height:calc(100vh - 64px); overflow-y:auto;
+    }
+    .sidebar-label {
+      font-size:0.65rem; font-weight:600; letter-spacing:0.1em;
+      color:var(--muted); text-transform:uppercase;
+      padding:0 0.75rem; margin-bottom:0.5rem; margin-top:1rem;
+    }
+    .sidebar-label:first-child { margin-top:0; }
+    .nav-item {
+      display:flex; align-items:center; gap:10px;
+      padding:0.6rem 0.75rem; border-radius:8px; cursor:pointer;
+      font-size:0.9rem; font-weight:500; color:var(--muted);
+      transition:all 0.2s; border:1px solid transparent;
+      user-select:none; margin-bottom:2px;
+    }
+    .nav-item:hover { color:var(--text); background:rgba(255,255,255,0.04); }
+    .nav-item.active { color:var(--accent); background:rgba(56,189,248,0.08); border-color:rgba(56,189,248,0.2); }
+    .nav-icon { font-size:1rem; width:20px; text-align:center; }
+
+    /* Main */
+    main { padding:2rem; overflow-y:auto; }
+
+    /* Pages */
+    .page { display:none; animation:fadeUp 0.3s ease; }
+    .page.active { display:block; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .page-title { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; margin-bottom:0.25rem; letter-spacing:-0.02em; }
+    .page-sub   { color:var(--muted); font-size:0.88rem; margin-bottom:2rem; }
+
+    /* Stat cards */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:1rem; margin-bottom:2rem; }
+    .stat-card {
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:1.25rem 1rem; position:relative; overflow:hidden;
+    }
+    .stat-card::before {
+      content:''; position:absolute; top:-20px; right:-20px;
+      width:70px; height:70px; border-radius:50%;
+      background:var(--glow); filter:blur(20px);
+    }
+    .stat-icon { font-size:1.4rem; margin-bottom:0.5rem; }
+    .stat-val  { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; line-height:1; }
+    .stat-lbl  { font-size:0.75rem; color:var(--muted); margin-top:4px; }
+
+    /* Content grid */
+    .content-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1.25rem; }
+    .content-card {
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:1.5rem; transition:all 0.2s; cursor:pointer;
+    }
+    .content-card:hover { border-color:rgba(56,189,248,0.35); transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,0.3); }
+    .card-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; margin-bottom:1rem; }
+    .card-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin-bottom:0.35rem; }
+    .card-desc  { font-size:0.82rem; color:var(--muted); line-height:1.5; }
+    .card-tag   { display:inline-block; margin-top:0.75rem; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:600; }
+
+    /* Quiz list */
+    #quizList { list-style:none; display:flex; flex-direction:column; gap:0.75rem; }
+    .quiz-item {
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:1rem 1.25rem; display:flex; align-items:center;
+      justify-content:space-between; cursor:pointer; transition:all 0.2s;
+    }
+    .quiz-item:hover { border-color:rgba(56,189,248,0.4); background:rgba(56,189,248,0.04); transform:translateX(4px); }
+    .quiz-name { font-family:'Syne',sans-serif; font-weight:700; font-size:0.95rem; }
+    .quiz-meta { font-size:0.78rem; color:var(--muted); margin-top:3px; }
+    .diff-badge { padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0; }
+    .diff-easy   { background:rgba(52,211,153,0.15); color:var(--accent3); border:1px solid rgba(52,211,153,0.25); }
+    .diff-medium { background:rgba(251,191,36,0.12);  color:#fbbf24;       border:1px solid rgba(251,191,36,0.25); }
+    .diff-hard   { background:rgba(248,113,113,0.12); color:var(--danger); border:1px solid rgba(248,113,113,0.25); }
+    .quiz-arrow  { color:var(--muted); font-size:1.1rem; margin-left:1rem; transition:transform 0.2s; }
+    .quiz-item:hover .quiz-arrow { transform:translateX(4px); color:var(--accent); }
+
+    /* Quiz container */
+    .quiz-header {
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:1.25rem 1.5rem; margin-bottom:1.5rem;
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;
+    }
+    .quiz-header-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; }
+    .progress-bar-wrap { flex:1; min-width:120px; max-width:220px; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
+    .progress-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width 0.4s ease; }
+    .progress-text { font-size:0.78rem; color:var(--muted); white-space:nowrap; }
+
+    .question-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1.75rem; animation:fadeUp 0.25s ease; }
+    .q-number { font-size:0.72rem; font-weight:700; letter-spacing:0.08em; color:var(--accent); text-transform:uppercase; margin-bottom:0.6rem; }
+    .q-text   { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; line-height:1.5; margin-bottom:1.5rem; }
+    .options-list { display:flex; flex-direction:column; gap:0.6rem; }
+    .option-label {
+      display:flex; align-items:center; gap:12px;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+      border-radius:10px; padding:0.85rem 1rem; cursor:pointer; transition:all 0.18s; user-select:none;
+    }
+    .option-label:hover { background:rgba(56,189,248,0.07); border-color:rgba(56,189,248,0.3); }
+    .option-label:has(input:checked) { background:rgba(56,189,248,0.1); border-color:var(--accent); }
+    .option-key {
+      width:28px; height:28px; border-radius:6px; flex-shrink:0;
+      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Syne',sans-serif; font-weight:700; font-size:0.8rem; transition:all 0.18s;
+    }
+    .option-label:has(input:checked) .option-key { background:var(--accent); border-color:var(--accent); color:var(--bg); }
+    .option-text { font-size:0.92rem; line-height:1.4; }
+    input[type="radio"] { display:none; }
+
+    .quiz-nav { display:flex; justify-content:space-between; align-items:center; margin-top:1.25rem; gap:0.75rem; flex-wrap:wrap; }
+
+    /* Buttons */
+    .btn { padding:0.65rem 1.4rem; border:none; border-radius:9px; font-family:'DM Sans',sans-serif; font-weight:600; font-size:0.88rem; cursor:pointer; transition:all 0.18s; }
+    .btn-ghost   { background:rgba(255,255,255,0.06); color:var(--text); border:1px solid rgba(255,255,255,0.1); }
+    .btn-ghost:hover   { background:rgba(255,255,255,0.1); }
+    .btn-ghost:disabled{ opacity:0.35; cursor:not-allowed; }
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--bg); }
+    .btn-primary:hover { filter:brightness(1.1); transform:translateY(-1px); }
+    .btn-submit  { background:linear-gradient(135deg,#34d399,#059669); color:#fff; }
+    .btn-submit:hover { filter:brightness(1.1); transform:translateY(-1px); }
+    .btn-submit:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+    /* Exam items */
+    .exam-item {
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:1.25rem 1.5rem; display:flex; align-items:center; gap:1rem; margin-bottom:0.75rem;
+    }
+    .exam-date { background:rgba(129,140,248,0.12); border:1px solid rgba(129,140,248,0.2); border-radius:10px; padding:0.5rem 0.75rem; text-align:center; min-width:54px; flex-shrink:0; }
+    .exam-date-day { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; color:var(--accent2); line-height:1; }
+    .exam-date-mon { font-size:0.68rem; color:var(--muted); font-weight:600; text-transform:uppercase; }
+    .exam-name   { font-family:'Syne',sans-serif; font-weight:700; font-size:0.95rem; margin-bottom:3px; }
+    .exam-meta   { font-size:0.78rem; color:var(--muted); }
+    .exam-status { padding:4px 10px; border-radius:20px; font-size:0.7rem; font-weight:700; text-transform:uppercase; flex-shrink:0; }
+    .status-soon     { background:rgba(251,191,36,0.12);  color:#fbbf24;       border:1px solid rgba(251,191,36,0.25); }
+    .status-upcoming { background:rgba(129,140,248,0.12); color:var(--accent2);border:1px solid rgba(129,140,248,0.25); }
+
+    /* Skeleton */
+    .skeleton { background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+    @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+
+    /* Empty state */
+    .empty { text-align:center; padding:3rem 1rem; color:var(--muted); }
+    .empty-icon  { font-size:2.5rem; margin-bottom:0.75rem; }
+    .empty-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--text); margin-bottom:0.35rem; }
+    .empty-text  { font-size:0.85rem; }
+
+    /* Toast */
+    #toast {
+      position:fixed; bottom:24px; right:24px; z-index:999;
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:0.9rem 1.25rem; display:flex; align-items:center; gap:10px;
+      font-size:0.88rem; box-shadow:0 8px 32px rgba(0,0,0,0.4);
+      transform:translateY(80px); opacity:0; transition:transform 0.3s,opacity 0.3s;
+      max-width:320px;
+    }
+    #toast.show { transform:translateY(0); opacity:1; }
+    #toast.success { border-color:rgba(52,211,153,0.4); }
+    #toast.error   { border-color:rgba(248,113,113,0.4); }
+
+    /* Responsive */
+    @media(max-width:768px) {
+      .layout { grid-template-columns:1fr; }
+      aside { position:static; height:auto; display:flex; flex-direction:row; flex-wrap:wrap; gap:4px; padding:0.75rem; border-right:none; border-bottom:1px solid var(--border); }
+      .sidebar-label { display:none; }
+      .nav-item { padding:0.5rem 0.75rem; font-size:0.82rem; }
+      main { padding:1.25rem; }
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-logo">⚡ EduPortal</div>
+  <div class="header-user">
+    <span id="header-roll"></span>
+    <div class="avatar" id="avatar-initials">S</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="sidebar-label">Menu</div>
+    <div class="nav-item active" data-page="dashboard">  <span class="nav-icon">🏠</span> Dashboard</div>
+    <div class="nav-item"       data-page="quizzes">     <span class="nav-icon">📝</span> Quizzes</div>
+    <div class="nav-item"       data-page="exams">       <span class="nav-icon">📅</span> Exams</div>
+    <div class="nav-item"       data-page="content">     <span class="nav-icon">📚</span> Materials</div>
+    <div class="sidebar-label">Account</div>
+    <div class="nav-item"       onclick="window.location.href='password.html'"><span class="nav-icon">🔐</span> Password</div>
+    <div class="nav-item"       onclick="logout()">      <span class="nav-icon">🚪</span> Logout</div>
+  </aside>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-title">Good day 👋</div>
+      <div class="page-sub" id="dash-sub">Here's your learning overview.</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-val" id="stat-quizzes">—</div>
+          <div class="stat-lbl">Quizzes</div>
+        </div>
+        <div class="stat-card" style="--glow:rgba(129,140,248,0.15)">
+          <div class="stat-icon">✅</div>
+          <div class="stat-val" id="stat-done">0</div>
+          <div class="stat-lbl">Completed</div>
+        </div>
+        <div class="stat-card" style="--glow:rgba(52,211,153,0.15)">
+          <div class="stat-icon">📅</div>
+          <div class="stat-val">3</div>
+          <div class="stat-lbl">Exams</div>
+        </div>
+        <div class="stat-card" style="--glow:rgba(251,191,36,0.15)">
+          <div class="stat-icon">📚</div>
+          <div class="stat-val">6</div>
+          <div class="stat-lbl">Materials</div>
+        </div>
+      </div>
+      <div class="page-title" style="font-size:1rem;margin-bottom:1rem;">Your Quizzes</div>
+      <div class="content-grid" id="dash-quiz-grid">
+        <div class="skeleton" style="height:130px;border-radius:14px;"></div>
+        <div class="skeleton" style="height:130px;border-radius:14px;"></div>
+        <div class="skeleton" style="height:130px;border-radius:14px;"></div>
+      </div>
+    </div>
+
+    <!-- QUIZZES -->
+    <div id="page-quizzes" class="page">
+      <div class="page-title">Quizzes</div>
+      <div class="page-sub">Click any quiz to start.</div>
+      <ul id="quizList"><li style="padding:1rem;color:var(--muted)">Loading…</li></ul>
+      <div id="quizContainer" style="margin-top:1.5rem;display:none;"></div>
+    </div>
+
+    <!-- EXAMS -->
+    <div id="page-exams" class="page">
+      <div class="page-title">Upcoming Exams</div>
+      <div class="page-sub">Stay prepared — your exam schedule is below.</div>
+      <div class="exam-item">
+        <div class="exam-date"><div class="exam-date-day">18</div><div class="exam-date-mon">Jun</div></div>
+        <div style="flex:1"><div class="exam-name">Data Structures & Algorithms</div><div class="exam-meta">Room 204 · 10:00 AM · 2 hrs</div></div>
+        <div class="exam-status status-soon">In 6 days</div>
+      </div>
+      <div class="exam-item">
+        <div class="exam-date"><div class="exam-date-day">25</div><div class="exam-date-mon">Jun</div></div>
+        <div style="flex:1"><div class="exam-name">Database Management Systems</div><div class="exam-meta">Room 301 · 2:00 PM · 3 hrs</div></div>
+        <div class="exam-status status-upcoming">In 13 days</div>
+      </div>
+      <div class="exam-item">
+        <div class="exam-date"><div class="exam-date-day">02</div><div class="exam-date-mon">Jul</div></div>
+        <div style="flex:1"><div class="exam-name">Computer Networks</div><div class="exam-meta">Room 105 · 9:00 AM · 2 hrs</div></div>
+        <div class="exam-status status-upcoming">In 20 days</div>
+      </div>
+    </div>
+
+    <!-- MATERIALS -->
+    <div id="page-content" class="page">
+      <div class="page-title">Study Materials</div>
+      <div class="page-sub">Curated resources for your curriculum.</div>
+      <div class="content-grid">
+        <div class="content-card"><div class="card-icon" style="background:rgba(56,189,248,0.12)">📘</div><div class="card-title">Python Programming</div><div class="card-desc">Complete reference covering syntax, OOP, file handling and libraries.</div><span class="card-tag" style="background:rgba(56,189,248,0.1);color:var(--accent);border:1px solid rgba(56,189,248,0.2)">PDF · 4.2 MB</span></div>
+        <div class="content-card"><div class="card-icon" style="background:rgba(129,140,248,0.12)">🗄️</div><div class="card-title">DBMS Notes</div><div class="card-desc">Normalization, SQL queries, transactions, and ER diagrams.</div><span class="card-tag" style="background:rgba(129,140,248,0.1);color:var(--accent2);border:1px solid rgba(129,140,248,0.2)">Notes · 2.1 MB</span></div>
+        <div class="content-card"><div class="card-icon" style="background:rgba(52,211,153,0.12)">🌐</div><div class="card-title">Computer Networks</div><div class="card-desc">OSI model, TCP/IP, routing protocols, and network security.</div><span class="card-tag" style="background:rgba(52,211,153,0.1);color:var(--accent3);border:1px solid rgba(52,211,153,0.2)">Slides · 6.8 MB</span></div>
+        <div class="content-card"><div class="card-icon" style="background:rgba(251,191,36,0.12)">🧮</div><div class="card-title">Data Structures</div><div class="card-desc">Arrays, trees, graphs, and algorithm complexity with visualizations.</div><span class="card-tag" style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2)">PDF · 5.5 MB</span></div>
+        <div class="content-card"><div class="card-icon" style="background:rgba(248,113,113,0.12)">🔐</div><div class="card-title">Cyber Security</div><div class="card-desc">Cryptography, network threats, firewalls, and ethical hacking basics.</div><span class="card-tag" style="background:rgba(248,113,113,0.1);color:var(--danger);border:1px solid rgba(248,113,113,0.2)">PDF · 3.3 MB</span></div>
+        <div class="content-card"><div class="card-icon" style="background:rgba(56,189,248,0.12)">⚙️</div><div class="card-title">Operating Systems</div><div class="card-desc">Process management, memory allocation, scheduling and deadlock.</div><span class="card-tag" style="background:rgba(56,189,248,0.1);color:var(--accent);border:1px solid rgba(56,189,248,0.2)">Notes · 1.8 MB</span></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API_BASE_URL  = 'http://127.0.0.1:5000';
+  const studentRollNo = localStorage.getItem('studentRollNo');
+  const studentEmail  = localStorage.getItem('studentEmail');
+
+  if (!studentRollNo || !studentEmail) {
+    showToast('Please log in first.', 'error');
+    // setTimeout(() => window.location.href = 'login.html', 1500);
+  }
+
+  if (studentRollNo) {
+    document.getElementById('header-roll').textContent = studentRollNo;
+    document.getElementById('avatar-initials').textContent = studentRollNo.slice(-2).toUpperCase();
+    document.getElementById('dash-sub').textContent = `Welcome back, ${studentRollNo} — here's your overview.`;
+  }
+
+  // Toast
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
+    t.className = `show ${type}`;
+    setTimeout(() => { t.className = ''; }, 3500);
+  }
+
+  // Page switching
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    item.addEventListener('click', () => {
+      const name = item.dataset.page;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`page-${name}`).classList.add('active');
+      item.classList.add('active');
+      if (name !== 'quizzes') document.getElementById('quizContainer').style.display = 'none';
+    });
+  });
+
+  function goToPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    document.querySelector(`.nav-item[data-page="${name}"]`)?.classList.add('active');
+  }
+
+  function logout() {
+    localStorage.removeItem('studentRollNo');
+    localStorage.removeItem('studentEmail');
+    window.location.href = 'login.html';
+  }
+
+  // Helpers
+  function diffClass(d) {
+    if (!d) return 'diff-medium';
+    return d.toLowerCase() === 'easy' ? 'diff-easy' : d.toLowerCase() === 'hard' ? 'diff-hard' : 'diff-medium';
+  }
+  const palettes = [
+    { bg:'rgba(56,189,248,0.12)',  color:'var(--accent)'  },
+    { bg:'rgba(129,140,248,0.12)', color:'var(--accent2)' },
+    { bg:'rgba(52,211,153,0.12)',  color:'var(--accent3)' },
+    { bg:'rgba(251,191,36,0.12)',  color:'#fbbf24'        },
+    { bg:'rgba(248,113,113,0.12)', color:'var(--danger)'  },
+  ];
+  const icons = ['📝','🧪','💡','🔬','🎯','🧠'];
+
+  // Fetch quizzes
+  let allQuizzes = [];
+
+  fetch(`${API_BASE_URL}/api/quizzes?email=${encodeURIComponent(studentEmail || '')}`)
+    .then(r => r.json())
+    .then(quizzes => {
+      allQuizzes = quizzes.filter(q => {
+        let a = q.assignedTo;
+        if (typeof a === 'string') a = a.split(',').map(x => x.trim());
+        return Array.isArray(a) && a.some(p => (studentRollNo || '').startsWith(p));
+      });
+      document.getElementById('stat-quizzes').textContent = allQuizzes.length;
+      renderQuizList();
+      renderDashCards();
+    })
+    .catch(() => {
+      document.getElementById('quizList').innerHTML =
+        '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Connection Error</div><div class="empty-text">Could not reach the server.</div></div>';
+      document.getElementById('dash-quiz-grid').innerHTML =
+        '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load quizzes</div><div class="empty-text">Check your connection and refresh.</div></div>';
+      document.getElementById('stat-quizzes').textContent = '—';
+    });
+
+  function renderQuizList() {
+    const list = document.getElementById('quizList');
+    if (!allQuizzes.length) {
+      list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No quizzes yet</div><div class="empty-text">Your teacher hasn\'t assigned any quizzes to you yet.</div></div>';
+      return;
+    }
+    list.innerHTML = '';
+    allQuizzes.forEach(q => {
+      const li = document.createElement('div');
+      li.className = 'quiz-item';
+      const count = q.numQuestions || q.questions?.length || '?';
+      li.innerHTML = `
+        <div>
+          <div class="quiz-name">${q.topic}</div>
+          <div class="quiz-meta">${count} questions</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="diff-badge ${diffClass(q.difficulty)}">${q.difficulty || 'N/A'}</span>
+          <span class="quiz-arrow">→</span>
+        </div>`;
+      li.onclick = () => { goToPage('quizzes'); loadQuiz(q._id); };
+      list.appendChild(li);
+    });
+  }
+
+  function renderDashCards() {
+    const grid = document.getElementById('dash-quiz-grid');
+    if (!allQuizzes.length) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📭</div><div class="empty-title">No quizzes assigned yet</div><div class="empty-text">Check back later — your teacher will assign quizzes soon.</div></div>';
+      return;
+    }
+    grid.innerHTML = '';
+    allQuizzes.slice(0, 6).forEach((q, i) => {
+      const { bg, color } = palettes[i % palettes.length];
+      const card = document.createElement('div');
+      card.className = 'content-card';
+      const count = q.numQuestions || q.questions?.length || '?';
+      card.innerHTML = `
+        <div class="card-icon" style="background:${bg}">${icons[i % icons.length]}</div>
+        <div class="card-title">${q.topic}</div>
+        <div class="card-desc">${count} questions · ${q.difficulty || 'N/A'} difficulty</div>
+        <span class="card-tag" style="background:${bg};color:${color};border:1px solid ${bg}">Start Quiz →</span>`;
+      card.onclick = () => { goToPage('quizzes'); loadQuiz(q._id); };
+      grid.appendChild(card);
+    });
+  }
+
+  // Load quiz
+  function loadQuiz(quizId) {
+    const container = document.getElementById('quizContainer');
+    container.style.display = 'block';
+    container.innerHTML = '<div class="skeleton" style="height:200px;border-radius:14px;"></div>';
+    container.scrollIntoView({ behavior:'smooth' });
+
+    fetch(`${API_BASE_URL}/api/quiz/${quizId}`)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(quiz => renderQuiz(quiz, container))
+      .catch(err => {
+        container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Failed to load quiz (${err.message})</div><div class="empty-text">Please try again.</div></div>`;
+      });
+  }
+
+  function renderQuiz(quiz, container) {
+    container.innerHTML = '';
+    const questions = quiz.questions || [];
+    let current = 0;
+    const userAnswers = new Array(questions.length).fill(null);
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'quiz-header';
+    hdr.innerHTML = `
+      <div class="quiz-header-title">📝 ${quiz.topic}</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="qpbar" style="width:${100/questions.length}%"></div></div>
+      <span class="progress-text" id="qptext">1 / ${questions.length}</span>`;
+    container.appendChild(hdr);
+
+    // Question card
+    const qcard = document.createElement('div');
+    qcard.className = 'question-card';
+    container.appendChild(qcard);
+
+    // Nav buttons
+    const nav = document.createElement('div');
+    nav.className = 'quiz-nav';
+
+    const prevBtn   = Object.assign(document.createElement('button'), { className:'btn btn-ghost',   textContent:'← Previous', disabled:true });
+    const nextBtn   = Object.assign(document.createElement('button'), { className:'btn btn-primary',  textContent:'Next →' });
+    const submitBtn = Object.assign(document.createElement('button'), { className:'btn btn-submit',   textContent:'🚀 Submit Quiz', disabled:true });
+    submitBtn.style.display = 'none';
+
+    nav.append(prevBtn, submitBtn, nextBtn);
+    container.appendChild(nav);
+
+    function renderQuestion(idx) {
+      const q = questions[idx];
+      const qText = q.question || q.questionText || `Question ${idx + 1}`;
+      const opts = q.options;
+      const entries = (opts && typeof opts === 'object' && !Array.isArray(opts))
+        ? Object.entries(opts)
+        : Array.isArray(opts) ? opts.map((v,i) => [['A','B','C','D'][i]??i, v]) : [];
+
+      qcard.innerHTML = `
+        <div class="q-number">Question ${idx + 1} of ${questions.length}</div>
+        <div class="q-text">${qText}</div>
+        <div class="options-list" id="opts"></div>`;
+
+      const ol = qcard.querySelector('#opts');
+      entries.forEach(([key, text]) => {
+        const lbl = document.createElement('label');
+        lbl.className = 'option-label';
+        lbl.innerHTML = `
+          <input type="radio" name="q${idx}" value="${key}" ${userAnswers[idx]===key?'checked':''}/>
+          <span class="option-key">${key}</span>
+          <span class="option-text">${text}</span>`;
+        lbl.querySelector('input').addEventListener('change', e => {
+          userAnswers[idx] = e.target.value;
+          submitBtn.disabled = userAnswers.some(a => a === null);
+        });
+        ol.appendChild(lbl);
+      });
+
+      if (q.image || q.imageData) {
+        const img = document.createElement('img');
+        img.src = q.image || q.imageData;
+        img.style.cssText = 'max-width:100%;border-radius:8px;margin-top:1rem;';
+        qcard.appendChild(img);
+      }
+
+      document.getElementById('qpbar').style.width = `${((idx+1)/questions.length)*100}%`;
+      document.getElementById('qptext').textContent = `${idx+1} / ${questions.length}`;
+      prevBtn.disabled       = idx === 0;
+      nextBtn.style.display  = idx === questions.length - 1 ? 'none'         : 'inline-block';
+      submitBtn.style.display= idx === questions.length - 1 ? 'inline-block' : 'none';
+    }
+
+    prevBtn.addEventListener('click', () => { if (current > 0)                          { current--; renderQuestion(current); } });
+    nextBtn.addEventListener('click', () => { if (current < questions.length - 1)       { current++; renderQuestion(current); } });
+
+    submitBtn.addEventListener('click', () => {
+      submitBtn.disabled = true;
+      let score = 0;
+      questions.forEach((q, i) => {
+        if ((userAnswers[i]||'').toUpperCase() === (q.answer||'').toUpperCase()) score++;
+      });
+
+      fetch(`${API_BASE_URL}/api/submitScore`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ quizId:quiz._id, studentRollNo, score, total:questions.length })
+      })
+      .then(async r => {
+        if (r.status === 200) {
+          document.getElementById('stat-done').textContent =
+            parseInt(document.getElementById('stat-done').textContent || 0) + 1;
+          showResult(container, score, questions.length, quiz.topic);
+        } else if (r.status === 409) {
+          showToast('You already submitted this quiz.', 'error');
+          submitBtn.disabled = false;
+        } else {
+          showToast('Submission error. Try again.', 'error');
+          submitBtn.disabled = false;
+        }
+      })
+      .catch(() => { showToast('Network error.', 'error'); submitBtn.disabled = false; });
+    });
+
+    renderQuestion(0);
+  }
+
+  function showResult(container, score, total, topic) {
+    const pct   = Math.round((score / total) * 100);
+    const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '📖';
+    const color = pct >= 80 ? 'var(--accent3)' : pct >= 60 ? 'var(--accent)' : '#fbbf24';
+    container.innerHTML = `
+      <div class="question-card" style="text-align:center;padding:3rem 2rem;">
+        <div style="font-size:3rem;margin-bottom:1rem;">${emoji}</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:0.5rem;">${topic}</div>
+        <div style="font-size:3rem;font-family:'Syne',sans-serif;font-weight:800;color:${color};margin:1rem 0;">${score}/${total}</div>
+        <div style="font-size:1rem;color:var(--muted);margin-bottom:2rem;">${pct}% — ${pct>=80?'Excellent work!':pct>=60?'Good job!':'Keep studying!'}</div>
+        <button class="btn btn-primary" onclick="document.getElementById('quizContainer').style.display='none'">← Back to Quizzes</button>
+      </div>`;
+    showToast(`Submitted! Score: ${score}/${total}`, 'success');
+    container.scrollIntoView({ behavior:'smooth' });
+  }
+</script>
+</body>
+</html>

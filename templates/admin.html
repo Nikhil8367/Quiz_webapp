@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Teacher Quiz Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:"Poppins",sans-serif; scroll-behavior:smooth; }
+    body { overflow-x:hidden; background:black; color:white; position:relative; display:flex; justify-content:center; align-items:center; min-height:100vh; height:auto; padding:1.5rem; }
+    body::before { content:""; position:fixed; top:0; left:0; width:100%; height:100%; background:url('https://source.unsplash.com/1600x900/?galaxy,space,nebula') no-repeat center center/cover; filter:blur(2px); opacity:0.5; z-index:-3; }
+    canvas { position:fixed; top:0; left:0; z-index:-2; display:block; }
+    .max-w-5xl { background-color:rgba(255,255,255,0.85); color:#1a202c; position:relative; z-index:1; box-shadow:0 0 15px rgba(0,0,0,0.3); }
+    #starCanvas { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-1; pointer-events:none; display:block; }
+    .buttonrow { display:flex; align-items:center; justify-content:space-between; }
+  </style>
+</head>
+<body class="font-sans">
+  <canvas id="starCanvas"></canvas>
+  <div class="max-w-5xl mx-auto shadow rounded p-8 bg-white mt-10">
+    <h1 class="text-3xl font-bold text-blue-700 mb-6">Quiz Generator (Teachers Only)</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div>
+        <label for="topic" class="block font-semibold mb-1">Topic</label>
+        <input id="topic" type="text" class="w-full border px-3 py-2 rounded" placeholder="e.g., Python loops" autocomplete="off" />
+      </div>
+      <div>
+        <label for="difficulty" class="block font-semibold mb-1">Difficulty</label>
+        <select id="difficulty" class="w-full border px-3 py-2 rounded">
+          <option value="">Select</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div>
+        <label for="numQuestions" class="block font-semibold mb-1">Number of Questions</label>
+        <input id="numQuestions" type="number" class="w-full border px-3 py-2 rounded" placeholder="e.g., 5" min="1" max="20" />
+      </div>
+      <div>
+        <label for="rollNumber" class="block font-semibold mb-1">Assign Quiz to (9 digits for branch, or up to 12 digits for student)</label>
+        <input id="rollNumber" type="text" class="w-full border px-3 py-2 rounded" placeholder="e.g. 323103312 or 323103312345" autocomplete="off" maxlength="12" />
+        <p id="roll-error" class="text-red-600 text-sm mt-1 hidden">Roll number must be 9 to 12 digits and follow format: 3 + YY + 1033 + BB + optional SSS.</p>
+      </div>
+    </div>
+
+    <button onclick="generateQuiz()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold">Generate Quiz</button>
+
+    <div id="message" class="mt-4 text-sm font-semibold text-red-600"></div>
+    <div class="buttonrow">
+      <button id="viewQuizzesBtn" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">View My Quizzes</button>
+      <a href="scores.html"><button class="bg-blue-500 text-white px-4 py-2 rounded mt-4">View Scores</button></a>
+    </div>
+    <div id="quizList" class="mt-4 space-y-3"></div>
+
+    <div id="quiz-editor" class="mt-8 rounded p-6 border border-gray-300" style="display:none;">
+      <label class="block font-semibold mb-1">
+        Question <span id="current-question-number"></span> of <span id="total-questions"></span>:
+      </label>
+      <textarea id="edit-question" rows="4" class="w-full border p-2 mb-4 rounded" placeholder="Edit question text here..."></textarea>
+
+      <label class="block font-semibold mb-1">Options:</label>
+      <div id="options-container" class="grid grid-cols-2 gap-3 mb-4"></div>
+
+      <label for="edit-answer" class="block font-semibold mb-1">Answer (A / B / C / D):</label>
+      <input id="edit-answer" type="text" class="border p-2 w-full mb-6 rounded" placeholder="e.g. A" autocomplete="off" />
+
+      <label for="question-image-upload" class="block font-semibold mb-2">Upload Image (optional):</label>
+      <input id="question-image-upload" type="file" accept="image/*" class="mb-4" />
+      <div id="image-previews" class="mb-6 flex gap-4 overflow-x-auto"></div>
+
+      <div class="flex justify-between items-center">
+        <button id="prev-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded disabled:opacity-50" disabled>Previous</button>
+        <button id="next-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded" disabled>Next</button>
+        <button id="add-btn" class="ml-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Add Question</button>
+        <button id="save-btn" class="ml-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save All</button>
+      </div>
+    </div>
+
+    <button onclick="uploadQuiz()" id="upload-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold mt-6" style="display:none;">
+      Upload Quiz to Database
+    </button>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://127.0.0.1:5000';
+
+    // ─────────────────────────────────────────────
+    // HELPERS: normalise options to/from the two formats
+    //
+    //  "stored" format  (used in `questions[]` array):
+    //    { A: "text", B: "text", C: "text", D: "text" }
+    //
+    //  answer is always stored as a KEY: "A" | "B" | "C" | "D"
+    // ─────────────────────────────────────────────
+
+    /** Convert Gemini's {A,B,C,D} object → same object (already correct).
+     *  Also handles legacy array ["A) text", ...] just in case. */
+    function normaliseOptions(raw) {
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw; // already {A,B,C,D}
+      if (Array.isArray(raw)) {
+        // fallback: ["A) foo","B) bar",...] or plain ["foo","bar",...]
+        const keys = ['A','B','C','D'];
+        const out = {};
+        raw.forEach((v, i) => { if (keys[i]) out[keys[i]] = v; });
+        return out;
+      }
+      return { A:'', B:'', C:'', D:'' };
+    }
+
+    // ─────────────────────────────────────────────
+    // STATE
+    // ─────────────────────────────────────────────
+    let questions = [];          // each: { questionText, options:{A,B,C,D}, answer:"A"|"B"|…, imageData }
+    let currentQuestionIndex = 0;
+
+    // DOM refs
+    const messageDiv               = document.getElementById('message');
+    const quizEditor               = document.getElementById('quiz-editor');
+    const currentQuestionNumberSpan= document.getElementById('current-question-number');
+    const totalQuestionsSpan       = document.getElementById('total-questions');
+    const editQuestionTextarea     = document.getElementById('edit-question');
+    const optionsContainer         = document.getElementById('options-container');
+    const editAnswerInput          = document.getElementById('edit-answer');
+    const questionImageUpload      = document.getElementById('question-image-upload');
+    const imagePreviews            = document.getElementById('image-previews');
+    const prevBtn                  = document.getElementById('prev-btn');
+    const nextBtn                  = document.getElementById('next-btn');
+    const addBtn                   = document.getElementById('add-btn');
+    const saveBtn                  = document.getElementById('save-btn');
+    const uploadBtn                = document.getElementById('upload-btn');
+
+    // ─────────────────────────────────────────────
+    // GENERATE QUIZ
+    // ─────────────────────────────────────────────
+    async function generateQuiz() {
+      messageDiv.textContent = '';
+      const topic        = document.getElementById('topic').value.trim();
+      const difficulty   = document.getElementById('difficulty').value;
+      const numQuestions = parseInt(document.getElementById('numQuestions').value);
+
+      if (!topic)        { messageDiv.textContent = 'Please enter a topic.'; return; }
+      if (!difficulty)   { messageDiv.textContent = 'Please select a difficulty.'; return; }
+      if (!numQuestions || numQuestions < 1 || numQuestions > 20) {
+        messageDiv.textContent = 'Please enter a valid number of questions (1-20).'; return;
+      }
+
+      messageDiv.textContent = 'Generating quiz...';
+      messageDiv.className   = 'text-blue-600';
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/generate-quiz`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ topic, difficulty, numQuestions })
+        });
+        const data = await response.json();
+
+        if (!response.ok || !Array.isArray(data.questions)) {
+          throw new Error(data.error || 'Failed to load questions.');
+        }
+
+        // ── KEY FIX ──────────────────────────────────────────────────────────
+        // Gemini returns:
+        //   { question: "...", options: { A:"...", B:"...", C:"...", D:"..." }, answer: "A" }
+        // We store options as-is (object) and answer as the KEY ("A","B","C","D").
+        // ─────────────────────────────────────────────────────────────────────
+        questions = data.questions.map(q => ({
+          questionText: q.question,
+          options:      normaliseOptions(q.options),   // {A,B,C,D}
+          answer:       q.answer.toUpperCase(),        // "A" | "B" | "C" | "D"
+          imageData:    null
+        }));
+
+        currentQuestionIndex = 0;
+        quizEditor.style.display = 'block';
+        uploadBtn.style.display  = 'none';
+        totalQuestionsSpan.textContent = questions.length;
+        showQuestion(0);
+        messageDiv.textContent = 'Quiz generated successfully!';
+        messageDiv.className   = 'text-green-600';
+
+      } catch (err) {
+        console.error('Error generating quiz:', err);
+        messageDiv.textContent = 'Error: ' + err.message;
+        messageDiv.className   = 'text-red-600';
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // SHOW QUESTION
+    // ─────────────────────────────────────────────
+    function showQuestion(index) {
+      if (index < 0 || index >= questions.length) return;
+      currentQuestionIndex = index;
+
+      const q = questions[index];
+      currentQuestionNumberSpan.textContent = index + 1;
+      editQuestionTextarea.value = q.questionText || '';
+      editAnswerInput.value      = q.answer || '';   // shows "A", "B", "C", or "D"
+
+      // Render one text-input per option, labelled A/B/C/D
+      optionsContainer.innerHTML = '';
+      Object.entries(q.options).forEach(([key, value]) => {
+        const div   = document.createElement('div');
+        div.classList.add('flex', 'items-center', 'gap-2');
+
+        const label = document.createElement('span');
+        label.textContent = key + ')';
+        label.classList.add('font-bold', 'w-6', 'shrink-0');
+
+        const input = document.createElement('input');
+        input.type  = 'text';
+        input.value = value;
+        input.classList.add('border', 'p-1', 'rounded', 'w-full');
+        input.dataset.optionKey = key;
+        input.addEventListener('input', (e) => {
+          questions[currentQuestionIndex].options[key] = e.target.value;
+        });
+
+        div.appendChild(label);
+        div.appendChild(input);
+        optionsContainer.appendChild(div);
+      });
+
+      updateImagePreviews();
+      prevBtn.disabled = currentQuestionIndex === 0;
+      nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+    }
+
+    // ─────────────────────────────────────────────
+    // SAVE CURRENT QUESTION (to memory)
+    // ─────────────────────────────────────────────
+    function saveCurrentQuestion() {
+      if (!questions.length) return false;
+
+      const q           = questions[currentQuestionIndex];
+      q.questionText    = editQuestionTextarea.value.trim();
+      const answerInput = editAnswerInput.value.trim().toUpperCase();
+
+      // answer must be one of the option keys
+      if (!['A','B','C','D'].includes(answerInput) || !(answerInput in q.options)) {
+        messageDiv.textContent = 'Answer must be A, B, C, or D matching one of the options.';
+        messageDiv.className   = 'text-red-600';
+        return false;
+      }
+
+      q.answer = answerInput;
+      return true;
+    }
+
+    // ─────────────────────────────────────────────
+    // NAV BUTTONS
+    // ─────────────────────────────────────────────
+    prevBtn.addEventListener('click', () => {
+      if (saveCurrentQuestion() && currentQuestionIndex > 0) showQuestion(currentQuestionIndex - 1);
+    });
+    nextBtn.addEventListener('click', () => {
+      if (saveCurrentQuestion() && currentQuestionIndex < questions.length - 1) showQuestion(currentQuestionIndex + 1);
+    });
+
+    // ─────────────────────────────────────────────
+    // ADD QUESTION
+    // ─────────────────────────────────────────────
+    function addQuestion() {
+      if (!saveCurrentQuestion()) return;
+      questions.push({ questionText:'', options:{ A:'', B:'', C:'', D:'' }, answer:'A', imageData:null });
+      totalQuestionsSpan.textContent = questions.length;
+      showQuestion(questions.length - 1);
+      uploadBtn.style.display = 'none';
+      messageDiv.textContent  = '';
+    }
+    addBtn.addEventListener('click', addQuestion);
+
+    // ─────────────────────────────────────────────
+    // SAVE ALL (local validation)
+    // ─────────────────────────────────────────────
+    saveBtn.addEventListener('click', () => {
+      if (!saveCurrentQuestion()) return;
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (!q.questionText || Object.values(q.options).some(v => !v.trim()) || !q.answer) {
+          messageDiv.textContent = `Please fill all fields in question ${i + 1}.`;
+          showQuestion(i);
+          return;
+        }
+        if (!['A','B','C','D'].includes(q.answer.toUpperCase())) {
+          messageDiv.textContent = `Answer in question ${i + 1} must be A, B, C, or D.`;
+          showQuestion(i);
+          return;
+        }
+      }
+
+      messageDiv.textContent = 'All questions saved locally. You can now upload to database.';
+      messageDiv.className   = 'text-green-600';
+      uploadBtn.style.display = 'inline-block';
+    });
+
+    // ─────────────────────────────────────────────
+    // IMAGE UPLOAD
+    // ─────────────────────────────────────────────
+    function updateImagePreviews() {
+      imagePreviews.innerHTML = '';
+      const imgData = questions[currentQuestionIndex]?.imageData;
+      if (imgData) {
+        const img = document.createElement('img');
+        img.src   = imgData;
+        img.alt   = 'Question Image';
+        img.classList.add('max-h-32','rounded','border');
+        imagePreviews.appendChild(img);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove Image';
+        removeBtn.classList.add('ml-2','text-red-600','underline');
+        removeBtn.onclick = () => { questions[currentQuestionIndex].imageData = null; updateImagePreviews(); };
+        imagePreviews.appendChild(removeBtn);
+      }
+    }
+
+    questionImageUpload.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { questions[currentQuestionIndex].imageData = e.target.result; updateImagePreviews(); };
+      reader.readAsDataURL(file);
+      questionImageUpload.value = '';
+    });
+
+    // ─────────────────────────────────────────────
+    // UPLOAD QUIZ
+    // ─────────────────────────────────────────────
+    async function uploadQuiz() {
+      if (!questions || !questions.length) {
+        messageDiv.textContent = 'No quiz to upload.'; messageDiv.className = 'text-red-600'; return;
+      }
+
+      const teacherId = localStorage.getItem('teacherId');
+      if (!teacherId) {
+        messageDiv.textContent = 'Not logged in as a teacher.'; messageDiv.className = 'text-red-600'; return;
+      }
+
+      const topic       = document.getElementById('topic').value.trim();
+      const difficulty  = document.getElementById('difficulty').value;
+      const assignedTo  = document.getElementById('rollNumber').value.trim();
+      const rollError   = document.getElementById('roll-error');
+
+      if (!topic)      { messageDiv.textContent = 'Please enter a topic.';       messageDiv.className = 'text-red-600'; return; }
+      if (!difficulty) { messageDiv.textContent = 'Please select difficulty.';   messageDiv.className = 'text-red-600'; return; }
+
+      const rollRegex = /^3\d{2}1033\d{2,5}$/;
+      if (assignedTo.length < 9 || assignedTo.length > 12 || !rollRegex.test(assignedTo)) {
+        rollError.classList.remove('hidden');
+        messageDiv.textContent = 'Invalid roll number format.'; messageDiv.className = 'text-red-600'; return;
+      }
+      rollError.classList.add('hidden');
+
+      // Flatten options back to the format backend expects
+      // Backend stores questions as-is; students will receive {A,B,C,D} object
+      const quizData = {
+        createdBy:  teacherId,
+        topic,
+        difficulty,
+        assignedTo,
+        numQuestions: questions.length,
+        questions:  questions.map(q => ({
+          question:  q.questionText,
+          options:   q.options,    // {A,B,C,D}
+          answer:    q.answer,     // "A"|"B"|"C"|"D"
+          imageData: q.imageData || null
+        }))
+      };
+
+      messageDiv.textContent = 'Uploading quiz to database...';
+      messageDiv.className   = 'text-blue-600';
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/quizzes`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(quizData)
+        });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed to upload quiz.'); }
+
+        messageDiv.textContent  = 'Quiz uploaded successfully!';
+        messageDiv.className    = 'text-green-600';
+        uploadBtn.style.display = 'none';
+        quizEditor.style.display = 'none';
+      } catch (error) {
+        messageDiv.textContent = 'Error uploading quiz: ' + error.message;
+        messageDiv.className   = 'text-red-600';
+      }
+    }
+
+    window.generateQuiz = generateQuiz;
+    window.uploadQuiz   = uploadQuiz;
+
+    // ─────────────────────────────────────────────
+    // VIEW MY QUIZZES
+    // ─────────────────────────────────────────────
+    function setupViewQuizzes() {
+      const viewBtn  = document.getElementById('viewQuizzesBtn');
+      const quizList = document.getElementById('quizList');
+      let editingQuizId = null;
+
+      function renderQuestion() {
+        const q = questions[currentQuestionIndex];
+        editQuestionTextarea.value             = q.questionText || '';
+        editAnswerInput.value                  = q.answer || '';
+        currentQuestionNumberSpan.textContent  = currentQuestionIndex + 1;
+        totalQuestionsSpan.textContent         = questions.length;
+
+        optionsContainer.innerHTML = '';
+        Object.entries(normaliseOptions(q.options)).forEach(([key, value]) => {
+          const div   = document.createElement('div');
+          div.classList.add('flex','items-center','gap-2');
+          const label = document.createElement('span');
+          label.textContent = key + ')';
+          label.classList.add('font-bold','w-6','shrink-0');
+          const input = document.createElement('input');
+          input.type  = 'text';
+          input.classList.add('border','p-2','rounded','w-full');
+          input.value = value;
+          input.dataset.optionKey = key;
+          input.addEventListener('input', e => { questions[currentQuestionIndex].options[key] = e.target.value; });
+          div.appendChild(label); div.appendChild(input);
+          optionsContainer.appendChild(div);
+        });
+
+        prevBtn.disabled = currentQuestionIndex === 0;
+        nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+        quizEditor.style.display = 'block';
+        uploadBtn.style.display  = 'block';
+      }
+
+      viewBtn.addEventListener('click', async () => {
+        const teacherId = localStorage.getItem('teacherId');
+        if (!teacherId) return alert('Please log in as a teacher.');
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/my-quizzes/${teacherId}`);
+          if (!response.ok) throw new Error('Failed to fetch quizzes');
+          const quizzes = await response.json();
+
+          quizList.innerHTML = '';
+          if (!quizzes.length) { quizList.innerHTML = '<p class="text-gray-600">No quizzes found.</p>'; return; }
+
+          quizzes.forEach((quiz, index) => {
+            const quizDiv = document.createElement('div');
+            quizDiv.className = 'border p-4 rounded bg-white shadow';
+
+            const questionsHtml = quiz.questions.map((q, i) =>
+              `<li><b>Q${i+1}:</b> ${q.question || q.questionText}</li>`
+            ).join('');
+
+            quizDiv.innerHTML = `
+              <h3 class="font-bold text-lg cursor-pointer">${index+1}. ${quiz.topic} – (${quiz.difficulty})</h3>
+              <div class="questions mt-2 hidden">
+                <ul class="list-disc ml-5">${questionsHtml}</ul>
+                <div class="mt-3 flex gap-4">
+                  <button class="edit-btn bg-yellow-400 px-3 py-1 rounded">Edit</button>
+                  <button class="delete-btn bg-red-500 text-white px-3 py-1 rounded">Delete</button>
+                </div>
+              </div>`;
+
+            quizDiv.querySelector('h3').addEventListener('click', () => {
+              quizDiv.querySelector('.questions').classList.toggle('hidden');
+            });
+
+            quizDiv.querySelector('.delete-btn').addEventListener('click', async () => {
+              if (!confirm('Are you sure you want to delete this quiz?')) return;
+              const res = await fetch(`${API_BASE_URL}/api/quiz/${quiz._id}`, { method: 'DELETE' });
+              if (res.ok) { alert('Quiz deleted successfully.'); viewBtn.click(); }
+              else          alert('Error deleting quiz.');
+            });
+
+            quizDiv.querySelector('.edit-btn').addEventListener('click', () => {
+              // Normalise options when loading from DB (may be stored as {A,B,C,D})
+              questions = quiz.questions.map(q => ({
+                questionText: q.question || q.questionText || '',
+                options:      normaliseOptions(q.options),
+                answer:       (q.answer || 'A').toUpperCase(),
+                imageData:    q.imageData || null
+              }));
+              currentQuestionIndex = 0;
+              editingQuizId        = quiz._id;
+              renderQuestion();
+            });
+
+            quizList.appendChild(quizDiv);
+          });
+        } catch (err) {
+          quizList.innerHTML = `<p class="text-red-600">Error: ${err.message}</p>`;
+        }
+      });
+
+      // Save & re-upload for edits
+      uploadBtn.addEventListener('click', async () => {
+        if (!saveCurrentQuestion()) return;
+        if (!questions || !questions.length) { alert('No questions to upload.'); return; }
+
+        const teacherId  = localStorage.getItem('teacherId');
+        const topic      = document.getElementById('topic').value.trim();
+        const difficulty = document.getElementById('difficulty').value;
+        const assignedTo = document.getElementById('rollNumber').value.trim();
+        const rollError  = document.getElementById('roll-error');
+
+        if (!topic || !difficulty) { alert('Please fill in topic and difficulty.'); return; }
+
+        const rollRegex = /^3\d{2}1033\d{2,5}$/;
+        if (assignedTo.length < 9 || assignedTo.length > 12 || !rollRegex.test(assignedTo)) {
+          rollError.classList.remove('hidden'); alert('Invalid roll number format.'); return;
+        }
+        rollError.classList.add('hidden');
+
+        const quizData = {
+          createdBy: teacherId, topic, difficulty, assignedTo,
+          numQuestions: questions.length,
+          questions: questions.map(q => ({
+            question: q.questionText, options: q.options, answer: q.answer, imageData: q.imageData || null
+          }))
+        };
+
+        try {
+          if (editingQuizId) {
+            const del = await fetch(`${API_BASE_URL}/api/quiz/${editingQuizId}`, { method: 'DELETE' });
+            if (!del.ok) throw new Error('Failed to delete existing quiz.');
+            editingQuizId = null;
+          }
+          const post = await fetch(`${API_BASE_URL}/api/quizzes`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quizData)
+          });
+          if (!post.ok) { const e = await post.json(); throw new Error(e.error || 'Upload failed.'); }
+          alert('Quiz saved successfully!');
+          quizEditor.style.display = 'none';
+          uploadBtn.style.display  = 'none';
+          viewBtn.click();
+        } catch (err) { alert('Error: ' + err.message); }
+      });
+    }
+
+    setupViewQuizzes();
+
+    // ─────────────────────────────────────────────
+    // ROLL NUMBER VALIDATION
+    // ─────────────────────────────────────────────
+    function validateRollNumber(roll) {
+      const regexBranch  = /^3\d{2}1033\d{2}$/;
+      const regexStudent = /^3\d{2}1033\d{2}\d{1,3}$/;
+      return (roll.length === 9 && regexBranch.test(roll)) ||
+             (roll.length >= 10 && roll.length <= 12 && regexStudent.test(roll));
+    }
+
+    document.getElementById('rollNumber').addEventListener('input', function () {
+      const v = this.value.trim();
+      const err = document.getElementById('roll-error');
+      if (v.length >= 9 && v.length <= 12) {
+        if (validateRollNumber(v)) err.classList.add('hidden');
+        else { err.textContent = 'Roll number must be 9–12 digits: 3 + YY + 1033 + BB + optional SSS.'; err.classList.remove('hidden'); }
+      } else { err.classList.add('hidden'); }
+    });
+
+    // ─────────────────────────────────────────────
+    // STAR CANVAS
+    // ─────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('starCanvas');
+      const ctx    = canvas.getContext('2d');
+      let stars = [], moveX = 0, moveY = 0;
+      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+      function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; createStars(); }
+      function createStars() {
+        stars = [];
+        for (let i = 0; i < 300; i++) stars.push({
+          x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.5, speedX: Math.random() * 0.05 + 0.02, speedY: Math.random() * 0.05 + 0.02
+        });
+      }
+      function animateStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        stars.forEach(star => {
+          const boost = isMobile ? 1 : 1.5;
+          star.x += moveX * star.speedX * boost; star.y += moveY * star.speedY * boost;
+          if (star.x < 0) star.x = canvas.width;  if (star.x > canvas.width)  star.x = 0;
+          if (star.y < 0) star.y = canvas.height; if (star.y > canvas.height) star.y = 0;
+          ctx.beginPath(); ctx.globalAlpha = 0.8; ctx.fillStyle = 'white';
+          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        });
+        requestAnimationFrame(animateStars);
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      animateStars();
+      if (isMobile) {
+        window.addEventListener('deviceorientation', e => {
+          if (e.gamma !== null) { moveX += (e.gamma * 0.2 - moveX) * 0.05; moveY += (e.beta  * 0.1 - moveY) * 0.05; }
+        });
+      } else {
+        window.addEventListener('mousemove', e => {
+          moveX = (e.clientX / window.innerWidth  - 0.5) * 9;
+          moveY = (e.clientY / window.innerHeight - 0.5) * 9;
+        });
+      }
+    });
+  </script>
+</body>
+</html>

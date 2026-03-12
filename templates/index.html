@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login Portal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      overflow-x: hidden;
+      background: black;
+      color: white;
+      position: relative;
+
+      /* Flexbox centering */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      /* Make sure body takes full height */
+      min-height: 100vh;
+      height: 100vh;
+    }
+
+    /* Space Background */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://source.unsplash.com/1600x900/?galaxy,space,nebula') no-repeat center center/cover;
+      filter: blur(2px);
+      opacity: 0.5;
+      z-index: -2;
+    }
+
+    .login-container {
+  background-color: rgba(0, 0, 0, 0.6); /* Adjust alpha to control transparency */
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 40px 30px;
+  width: 350px;
+  color: white;
+  animation: fadeSlide 1s ease forwards;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 10;
+}
+
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.8em;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 12px;
+      margin: 12px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      transition: 0.3s;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    }
+
+    ::placeholder {
+      color: rgba(255, 255, 255, 0.8);
+    }
+    a {
+    color: #185a9d;
+    transition: color 0.3s ease;
+}
+a:hover {
+    color: red;
+}
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #43cea2, #185a9d);
+      color: white;
+      font-weight: bold;
+      font-size: 1em;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .error {
+      color: #ff5e5e;
+      text-align: center;
+      margin-top: 10px;
+      font-size: 0.9em;
+      animation: shake 0.4s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      50% { transform: translateX(4px); }
+      75% { transform: translateX(-4px); }
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 0.8em;
+      margin-top: 15px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      display: block; /* Fix inline canvas whitespace */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starCanvas"></canvas>
+
+  <div class="login-container">
+    <h2>🔐 GVPCE Login Portal</h2>
+    <select id="role">
+      <option value="student" style="color:#000000">Student</option>
+      <option value="teacher" style="color:#000000">Teacher</option>
+    </select>
+    <input type="email" id="email" placeholder="Enter institutional email" required />
+    <input type="password" id="password" placeholder="Enter password" required />
+    <button onclick="validateLogin()">Login</button>
+    <div class="error" id="error"></div>
+    <div class="footer-note">Only @gvpce.ac.in accounts are allowed</div>
+    <br>
+    <a href="reset.html">Reset Password</a>
+  </div>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5000";
+async function validateLogin() {
+  const role = document.getElementById('role').value;
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('error');
+  errorDiv.textContent = "";
+
+  if (!email.endsWith('@gvpce.ac.in')) {
+    errorDiv.textContent = "Email must end with @gvpce.ac.in";
+    return;
+  }
+
+  const emailPrefix = email.split('@')[0];
+
+  if (role === "student") {
+    if (!/^\d{12}$/.test(emailPrefix) || !emailPrefix.startsWith('32')) {
+      errorDiv.textContent = "Student email must be a 12-digit number starting with '32'";
+      return;
+    }
+  } else if (role === "teacher") {
+    if (/^\d+$/.test(emailPrefix)) {
+      errorDiv.textContent = "Teacher email must contain a name, not a number.";
+      return;
+    }
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      alert('Login successful!');
+      localStorage.clear();
+      if (role === "student"){
+        const studentEmail = document.getElementById('email').value.trim();
+        const studentRollNo = studentEmail.substring(0, 12);
+        localStorage.setItem('studentEmail',studentEmail)
+        localStorage.setItem('studentRollNo', studentRollNo);
+        window.location.href = 'main.html';
+      }
+      else if (role === "teacher"){
+        localStorage.setItem('teacherId', email);
+        window.location.href = 'admin.html';
+      }
+    } else {
+      errorDiv.textContent = result.error || 'Login failed.';
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Server error: ' + error.message;
+  }
+}
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("starCanvas");
+      if (!canvas) {
+        console.error("Error: #starCanvas not found.");
+        return;
+      }
+      const ctx = canvas.getContext("2d");
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      let stars = [];
+      let moveX = 0, moveY = 0;
+      let useGyro = false;
+      let isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+      function enableGyro() {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+              if (permissionState === "granted") {
+                useGyro = true;
+                window.addEventListener("deviceorientation", handleGyro);
+              }
+            })
+            .catch(error => console.error("Gyro Permission Error:", error));
+        } else {
+          useGyro = true;
+          window.addEventListener("deviceorientation", handleGyro);
+        }
+      }
+
+      function handleGyro(event) {
+        if (!useGyro) return;
+
+        if (event.gamma !== null && event.beta !== null) {
+          let smoothFactor = 0.05;
+          moveX += (event.gamma * 0.2 - moveX) * smoothFactor;
+          moveY += (event.beta * 0.1 - moveY) * smoothFactor;
+        }
+      }
+
+      function createStars() {
+        stars = [];
+        for (let i = 0; i < 300; i++) {
+          stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            radius: Math.random() * 1.5 + 0.5,
+            speedX: Math.random() * 0.05 + 0.02,
+            speedY: Math.random() * 0.05 + 0.02,
+          });
+        }
+      }
+
+      function handleMouseMove(event) {
+        if (!useGyro) {
+          let speedMultiplier = isMobile ? 1 : 3;
+          moveX = (event.clientX / window.innerWidth - 0.5) * 3 * speedMultiplier;
+          moveY = (event.clientY / window.innerHeight - 0.5) * 3 * speedMultiplier;
+        }
+      }
+
+      function animateStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        stars.forEach(star => {
+          let speedBoost = isMobile ? 1 : 1.5;
+          star.x += moveX * star.speedX * speedBoost;
+          star.y += moveY * star.speedY * speedBoost;
+
+          if (star.x < 0) star.x = canvas.width;
+          if (star.x > canvas.width) star.x = 0;
+          if (star.y < 0) star.y = canvas.height;
+          if (star.y > canvas.height) star.y = 0;
+
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+          ctx.fillStyle = "white";
+          ctx.globalAlpha = Math.random() * 0.8 + 0.2;
+          ctx.fill();
+        });
+
+        requestAnimationFrame(animateStars);
+      }
+
+      createStars();
+      animateStars();
+
+      if (isMobile) {
+        enableGyro();
+      } else {
+        window.addEventListener("mousemove", handleMouseMove);
+      }
+    });
+    
+
+  </script>
+</body>
+</html>
